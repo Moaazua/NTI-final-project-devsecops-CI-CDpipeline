@@ -49,15 +49,47 @@ This project showcases how to build, secure, and monitor modern containerized ap
 
 ## 🗂️ Project Structure
 nti-devsecops-project/
-│── terraform/ # Infrastructure as Code (AWS setup)
-│── ansible/ # Jenkins & CloudWatch configuration
-│── docker/ # Dockerfiles & Docker Compose
-│── k8s/ # Kubernetes manifests & Helm charts
-│── jenkins/ # Jenkinsfile (pipeline as code)
-│── monitoring/ # Prometheus & Grafana setup
-│── docs/ # Architecture diagram & documentation
-│── README.md # Project overview
-│── LICENSE
+├── terraform/
+│   ├── README.md
+│   ├── modules/
+│   │   ├── vpc/
+│   │   ├── eks/
+│   │   ├── rds/
+│   │   ├── ec2-jenkins/
+│   │   ├── s3/
+│   │   ├── ecr/
+│   │   └── backup/
+│   ├── environments/
+│   │   └── prod/
+│   │       └── main.tf
+├── ansible/
+│   ├── inventory.ini
+│   ├── playbooks/
+│   │   ├── install_jenkins.yml
+│   │   └── install_cloudwatch_agent.yml
+│   └── roles/
+│       ├── jenkins/
+│       └── cloudwatch/
+├── docker/
+│   ├── app/
+│   │   ├── Dockerfile
+│   │   └── src/
+│   └── docker-compose.yml
+├── k8s/
+│   ├── manifests/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   └── networkpolicy.yaml
+│   └── helm-chart/   # skeleton for your app chart
+├── jenkins/
+│   └── Jenkinsfile   # multibranch pipeline
+├── monitoring/
+│   ├── prometheus/
+│   │   ├── prometheus-rules.yml
+│   ├── grafana/
+│   │   └── grafana-dashboard.json
+└── README.md
+
 
 -----------------------------------------------------
 
