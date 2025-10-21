@@ -114,6 +114,5 @@ nti-devsecops-project/
 
 
 
-ل
 
 
