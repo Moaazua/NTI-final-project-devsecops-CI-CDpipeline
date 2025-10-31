@@ -107,7 +107,6 @@ nti-devsecops-project/
 ✅ Visualize and analyze system performance using Grafana
 
 ------------------------------------------------
-🧑‍💻 Author
 👤 Moaaz Essam
 🎓 NTI DevSecOps Track — Final Project
 
