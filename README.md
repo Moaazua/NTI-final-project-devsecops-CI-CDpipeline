@@ -195,12 +195,16 @@ nti-devsecops-project/
 ------------------------------------------------
 ## 🧩 Languages & Tools
 
-![HCL](https://img.shields.io/badge/HCL-42.0%25-blue?logo=terraform)
-![Vue](https://img.shields.io/badge/Vue-23.8%25-brightgreen?logo=vue.js)
-![Python](https://img.shields.io/badge/Python-9.4%25-yellow?logo=python)
-![Shell](https://img.shields.io/badge/Shell-7.7%25-lightgrey?logo=gnu-bash)
-![Dockerfile](https://img.shields.io/badge/Dockerfile-3.8%25-blue?logo=docker)
-![Other](https://img.shields.io/badge/Other-2.6%25-grey)
+<p align="right">
+  <img src="https://img.shields.io/badge/HCL-42.0%25-blue?logo=terraform" />
+  <img src="https://img.shields.io/badge/Vue-23.8%25-brightgreen?logo=vue.js" />
+  <img src="https://img.shields.io/badge/Python-9.4%25-yellow?logo=python" />
+  <img src="https://img.shields.io/badge/Shell-7.7%25-lightgrey?logo=gnu-bash" />
+  <img src="https://img.shields.io/badge/Dockerfile-3.8%25-blue?logo=docker" />
+  <img src="https://img.shields.io/badge/Other-2.6%25-grey" />
+</p>
+
+
 
 
 -----------------------------------------------------
