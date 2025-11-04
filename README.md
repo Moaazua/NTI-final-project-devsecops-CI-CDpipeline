@@ -8,42 +8,66 @@ This project showcases how to build, secure, and monitor modern containerized ap
 
 ## 🧱 Architecture Overview
 
-**Infrastructure Stack (Terraform):**
-- AWS EKS Cluster with 2 worker nodes (Auto Scaling Enabled)
-- Application Load Balancer (ELB)
-- RDS Database (Credentials stored in AWS Secrets Manager)
-- EC2 Instance for Jenkins Master
-- ECR Repository for Docker Images
-- S3 Bucket for ELB Access Logs
-- Automated Jenkins Backup (AWS Backup Service)
+<h2>Project Technology Stack</h2>
 
-**Configuration Management (Ansible):**
-- Install and configure Jenkins + required plugins  
-- Deploy CloudWatch Agent on all EC2 instances
-
-**Application Containerization (Docker):**
-- Build Docker images for microservices  
-- Compose all app components locally using Docker Compose
-
-**Kubernetes Deployment (EKS):**
-- Deploy services to EKS cluster using Kubernetes manifests  
-- Apply Helm Charts for versioned and easy deployment  
-- Configure Network Policies for Pod-to-Pod security
-
-**CI/CD Pipeline (Jenkins):**
-- Multi-Branch Pipeline triggered on each GitHub push  
-- Pipeline Stages:
-  1. Code Checkout  
-  2. SonarQube Code Quality Check  
-  3. Docker Image Build  
-  4. Trivy Security Scan  
-  5. Push Image to AWS ECR  
-  6. Deploy to EKS using Helm
-
-**Monitoring (Prometheus & Grafana):**
-- Prometheus monitors Pods & Nodes using Service Discovery  
-- CPU/RAM usage alerts when usage exceeds 80%  
-- Grafana dashboards visualize app and cluster metrics
+<table style="width:100%; border-collapse: collapse; background-color: #1e1e1e; color: #ffffff; text-align: left;">
+  <thead>
+    <tr style="border-bottom: 2px solid #555;">
+      <th style="padding: 10px;">Layer</th>
+      <th style="padding: 10px;">Technology</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Frontend</td>
+      <td style="padding: 8px;">React, Tailwind CSS, Vite</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Backend</td>
+      <td style="padding: 8px;">Node.js, Express</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Database</td>
+      <td style="padding: 8px;">AWS DynamoDB</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Storage</td>
+      <td style="padding: 8px;">AWS S3</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Infra as Code</td>
+      <td style="padding: 8px;">Terraform</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Config Mgmt</td>
+      <td style="padding: 8px;">Ansible</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">CI/CD</td>
+      <td style="padding: 8px;">Jenkins, GitHub</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Containers</td>
+      <td style="padding: 8px;">Docker, Docker Compose (local)</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Orchestration</td>
+      <td style="padding: 8px;">Kubernetes (EKS), NGINX Ingress</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Quality Gates</td>
+      <td style="padding: 8px;">SonarQube, Trivy</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #555;">
+      <td style="padding: 8px;">Monitoring</td>
+      <td style="padding: 8px;">Prometheus, Grafana, Alertmanager</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px;">Notifications</td>
+      <td style="padding: 8px;">Slack webhook</td>
+    </tr>
+  </tbody>
+</table>
 
 --------------------------------------------------
 
