@@ -7,6 +7,65 @@ This project showcases how to build, secure, and monitor modern containerized ap
 ------------------------------------------------------------
 
 ## 🧱 Architecture Overview
+This project implements a complete DevOps pipeline that automates the provisioning, deployment, and monitoring of a cloud-native application on AWS.
+
+1️⃣ Infrastructure (Terraform)
+
+Creates AWS VPC with public and private subnets.
+
+Deploys EKS Cluster with 2 worker nodes and an Auto Scaling Group.
+
+Creates Application Load Balancer (ALB) for traffic distribution.
+
+Launches EC2 instance for Jenkins.
+
+Provisions RDS database with credentials stored in AWS Secrets Manager.
+
+Creates ECR repository for Docker images.
+
+Configures S3 for ELB access logs and AWS Backup for daily Jenkins snapshots.
+
+2️⃣ Configuration Management (Ansible)
+
+Installs and configures Jenkins with required plugins.
+
+Installs CloudWatch Agent on all EC2 instances for monitoring and logging.
+
+3️⃣ Containerization (Docker)
+
+Builds Docker images for the web application.
+
+Uses docker-compose to run the full app locally (app + dependencies).
+
+4️⃣ Orchestration (Kubernetes)
+
+Defines Kubernetes manifests (deployment.yaml, service.yaml, networkpolicy.yaml).
+
+Applies manifests to AWS EKS cluster.
+
+Implements Network Policies to ensure secure communication between pods.
+
+5️⃣ CI/CD (Jenkins)
+
+Multi-branch pipeline triggered on every GitHub push.
+
+Pipeline stages:
+
+SonarQube quality check (fail if gate not passed).
+
+Build Docker image and scan with Trivy.
+
+Push image to ECR.
+
+Deploy updated image to EKS using Helm charts.
+
+6️⃣ Monitoring (Prometheus & Grafana)
+
+Deploys Prometheus for pod and node monitoring using service discovery.
+
+Creates CPU/RAM alerts (trigger when usage >80%).
+
+Visualizes system and app status using Grafana dashboards.
 
 <h2>Project Technology Stack</h2>
 
@@ -72,47 +131,8 @@ This project showcases how to build, secure, and monitor modern containerized ap
 --------------------------------------------------
 
 ## 🗂️ Project Structure
-nti-devsecops-project/
-├── terraform/
-│   ├── README.md
-│   ├── modules/
-│   │   ├── vpc/
-│   │   ├── eks/
-│   │   ├── rds/
-│   │   ├── ec2-jenkins/
-│   │   ├── s3/
-│   │   ├── ecr/
-│   │   └── backup/
-│   ├── environments/
-│   │   └── prod/
-│   │       └── main.tf
-├── ansible/
-│   ├── inventory.ini
-│   ├── playbooks/
-│   │   ├── install_jenkins.yml
-│   │   └── install_cloudwatch_agent.yml
-│   └── roles/
-│       ├── jenkins/
-│       └── cloudwatch/
-├── docker/
-│   ├── app/
-│   │   ├── Dockerfile
-│   │   └── src/
-│   └── docker-compose.yml
-├── k8s/
-│   ├── manifests/
-│   │   ├── deployment.yaml
-│   │   ├── service.yaml
-│   │   └── networkpolicy.yaml
-│   └── helm-chart/   # skeleton for your app chart
-├── jenkins/
-│   └── Jenkinsfile   # multibranch pipeline
-├── monitoring/
-│   ├── prometheus/
-│   │   ├── prometheus-rules.yml
-│   ├── grafana/
-│   │   └── grafana-dashboard.json
-└── README.md
+![Uploading ChatGPT Image Nov 4, 2025, 05_11_54 PM.png…]()
+
 
 
 -----------------------------------------------------
