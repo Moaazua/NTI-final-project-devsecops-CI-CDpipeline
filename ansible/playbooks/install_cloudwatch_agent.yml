@@ -1,0 +1,137 @@
+---
+- name: Install & configure Amazon CloudWatch Agent on EC2 nodes
+  hosts: ec2_nodes
+  become: true
+  vars:
+    cloudwatch_config_path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+    cloudwatch_version_deb: "amazon-cloudwatch-agent.deb"
+    cloudwatch_version_rpm: "amazon-cloudwatch-agent.rpm"
+  tasks:
+
+    - name: Ensure python3 is present (for some minimal distros)
+      package:
+        name: python3
+        state: present
+      when: ansible_facts['pkg_mgr'] != 'yum' or ansible_facts['pkg_mgr'] != 'dnf' or true
+
+    - name: Create directory for cloudwatch agent config
+      file:
+        path: /opt/aws/amazon-cloudwatch-agent/etc
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Download CloudWatch Agent (Debian/Ubuntu)
+      when: ansible_facts['os_family'] == 'Debian'
+      get_url:
+        url: https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+        dest: "/tmp/{{ cloudwatch_version_deb }}"
+        mode: '0644'
+
+    - name: Install CloudWatch Agent (Debian/Ubuntu)
+      when: ansible_facts['os_family'] == 'Debian'
+      apt:
+        deb: "/tmp/{{ cloudwatch_version_deb }}"
+        state: present
+      register: cw_install_result
+
+    - name: Download CloudWatch Agent (RHEL/Amazon Linux/CentOS)
+      when: ansible_facts['os_family'] == 'RedHat'
+      get_url:
+        url: https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+        dest: "/tmp/{{ cloudwatch_version_rpm }}"
+        mode: '0644'
+
+    - name: Install CloudWatch Agent (RHEL/Amazon Linux/CentOS)
+      when: ansible_facts['os_family'] == 'RedHat'
+      yum:
+        name: "/tmp/{{ cloudwatch_version_rpm }}"
+        state: present
+      register: cw_install_result
+
+    - name: Upload CloudWatch Agent config (example)
+      copy:
+        dest: "{{ cloudwatch_config_path }}"
+        content: |
+          {
+            "agent": {
+              "metrics_collection_interval": 60,
+              "run_as_user": "root"
+            },
+            "metrics": {
+              "append_dimensions": {
+                "AutoScalingGroupName": "${aws:AutoScalingGroupName}",
+                "InstanceId": "${aws:InstanceId}"
+              },
+              "metrics_collected": {
+                "cpu": {
+                  "resources": [
+                    "*"
+                  ],
+                  "measurement": [
+                    "cpu_usage_idle",
+                    "cpu_usage_iowait"
+                  ],
+                  "metrics_collection_interval": 60,
+                  "totalcpu": true
+                },
+                "mem": {
+                  "measurement": [
+                    "mem_used_percent"
+                  ],
+                  "metrics_collection_interval": 60
+                },
+                "disk": {
+                  "measurement": [
+                    "disk_used_percent"
+                  ],
+                  "resources": [
+                    "*"
+                  ],
+                  "metrics_collection_interval": 300
+                }
+              }
+            },
+            "logs": {
+              "logs_collected": {
+                "files": {
+                  "collect_list": [
+                    {
+                      "file_path": "/var/log/messages",
+                      "log_group_name": "/ec2/var/log/messages",
+                      "log_stream_name": "{instance_id}"
+                    },
+                    {
+                      "file_path": "/var/log/syslog",
+                      "log_group_name": "/ec2/var/log/syslog",
+                      "log_stream_name": "{instance_id}"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Fetch-apply CloudWatch Agent configuration and start agent
+      shell: >
+        /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
+        -a stop || true &&
+        /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
+        -a fetch-config -m ec2 -c file:{{ cloudwatch_config_path }} -s
+      args:
+        warn: false
+
+    - name: Ensure cloudwatch agent service is enabled & running (systemd)
+      service:
+        name: amazon-cloudwatch-agent
+        state: started
+        enabled: true
+      when: ansible_facts['init_system'] == 'systemd'
+
+    - name: Show install result
+      debug:
+        var: cw_install_result
