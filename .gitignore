@@ -19,3 +19,5 @@ crash.log
 
 # Terraform provider binaries
 .terraform/providers/
+.terraform/
+.terraform.lock.hcl
