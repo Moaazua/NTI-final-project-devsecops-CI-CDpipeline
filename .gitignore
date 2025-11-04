@@ -1,7 +1,10 @@
-# Terraform
+# Terraform state files
 *.tfstate
 *.tfstate.*
+
+# Local Terraform directories
 .terraform/
+.terraform/providers/
 .terraform.lock.hcl
 
 # Local override files
@@ -10,14 +13,13 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Crash log
+# Crash logs
 crash.log
 
 # Sensitive variable files
 *.tfvars
 *.tfvars.json
 
-# Terraform provider binaries
-.terraform/providers/
-.terraform/
-.terraform.lock.hcl
+# IDE / Editor files (optional)
+.idea/
+*.vscode/
