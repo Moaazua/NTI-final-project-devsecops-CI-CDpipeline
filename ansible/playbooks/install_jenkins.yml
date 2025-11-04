@@ -1,0 +1,139 @@
+---
+- name: Install & configure Jenkins + plugins
+  hosts: ec2_nodes
+  become: true
+  vars:
+    jenkins_admin_user: "admin"
+    jenkins_admin_password: "ChangeMe123!"   # غيّر هذا قبل النشر!
+    jenkins_plugins:
+      - git
+      - pipeline
+      - credentials
+      - docker-workflow
+      - workflow-aggregator
+      - configuration-as-code
+      - configuration-as-code-support
+      - blueocean
+    jenkins_cli_path: /tmp/jenkins-cli.jar
+    jenkins_url: "http://localhost:8080"
+    init_groovy_dir: /var/lib/jenkins/init.groovy.d
+  tasks:
+
+    - name: Install Java (OpenJDK 11)
+      package:
+        name: "{{ 'java-11-openjdk-devel' if ansible_facts['os_family']=='RedHat' else 'openjdk-11-jdk' }}"
+        state: present
+
+    - name: Add Jenkins apt repo (Debian/Ubuntu)
+      when: ansible_facts['os_family'] == 'Debian'
+      apt_key:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+        state: present
+
+    - name: Add Jenkins apt source list (Debian/Ubuntu)
+      when: ansible_facts['os_family'] == 'Debian'
+      copy:
+        dest: /etc/apt/sources.list.d/jenkins.list
+        content: "deb https://pkg.jenkins.io/debian-stable binary/"
+
+    - name: Add Jenkins repo (RHEL/CentOS/AmazonLinux)
+      when: ansible_facts['os_family'] == 'RedHat'
+      yum_repository:
+        name: jenkins
+        description: Jenkins-stable
+        baseurl: https://pkg.jenkins.io/redhat-stable/
+        gpgkey: https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+        enabled: yes
+        gpgcheck: yes
+
+    - name: Update apt cache (Debian)
+      when: ansible_facts['os_family'] == 'Debian'
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Jenkins package
+      package:
+        name: jenkins
+        state: present
+
+    - name: Ensure Jenkins service enabled and started
+      service:
+        name: jenkins
+        state: started
+        enabled: true
+
+    - name: Wait for Jenkins to be available on localhost:8080
+      wait_for:
+        host: 127.0.0.1
+        port: 8080
+        delay: 5
+        timeout: 120
+
+    - name: Create init.groovy.d directory if not exists
+      file:
+        path: "{{ init_groovy_dir }}"
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: "0755"
+
+    - name: Create initial admin user via groovy (idempotent)
+      copy:
+        dest: "{{ init_groovy_dir }}/01-create-admin-user.groovy"
+        owner: jenkins
+        group: jenkins
+        mode: "0644"
+        content: |
+          import jenkins.model.*
+          import hudson.security.*
+          def instance = Jenkins.getInstance()
+          def hudsonRealm = new HudsonPrivateSecurityRealm(false)
+          hudsonRealm.createAccount("{{ jenkins_admin_user }}","{{ jenkins_admin_password }}")
+          instance.setSecurityRealm(hudsonRealm)
+          def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+          instance.setAuthorizationStrategy(strategy)
+          instance.save()
+
+    - name: Restart Jenkins to apply groovy init (if file changed)
+      service:
+        name: jenkins
+        state: restarted
+      when: "'01-create-admin-user.groovy' in lookup('fileglob', init_groovy_dir + '/*', errors='ignore')"
+
+    - name: Download Jenkins CLI
+      get_url:
+        url: "{{ jenkins_url }}/jnlpJars/jenkins-cli.jar"
+        dest: "{{ jenkins_cli_path }}"
+        mode: '0755'
+      register: cli_dl
+      failed_when: cli_dl.status is defined and cli_dl.status not in [200, 0]
+
+    - name: Install Jenkins plugins (using CLI)
+      shell: >
+        java -jar {{ jenkins_cli_path }} -s {{ jenkins_url }}
+        -auth {{ jenkins_admin_user }}:{{ jenkins_admin_password }}
+        install-plugin {{ jenkins_plugins | join(' ') }} -deploy
+      args:
+        warn: false
+      register: plugins_inst
+      changed_when: "'Installed: ' in plugins_inst.stdout or plugins_inst.stdout != ''"
+
+    - name: Restart Jenkins after plugin install
+      service:
+        name: jenkins
+        state: restarted
+      when: plugins_inst is changed
+
+    - name: Ensure Jenkins is reachable (quick check)
+      uri:
+        url: "{{ jenkins_url }}/login"
+        status_code: 200
+      register: jenkins_check
+      retries: 6
+      delay: 5
+      until: jenkins_check.status == 200
+
+    - name: Print admin credentials summary
+      debug:
+        msg: "Jenkins admin user '{{ jenkins_admin_user }}' with password '{{ jenkins_admin_password }}' (change immediately!)."
