@@ -1,0 +1,76 @@
+# 1) Default-deny NetworkPolicy for this app (deny all ingress and egress except what is explicitly allowed by other policies)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-app-default-deny
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: my-app
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []   # no ingress allowed by this policy (other policies can add allow rules)
+  egress: []    # no egress allowed by this policy (other policies can add allow rules)
+
+---
+# 2) Allowed traffic policy: allow required egress for DNS and to the DB,
+#    and allow ingress only from pods labeled app=frontend in the same namespace.
+#    Adjust peer selectors/namespaces to match your real architecture.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-app-allow-required
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: my-app
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # Ingress: only allow from pods with label app=frontend in the same namespace
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: 80
+
+  # Egress: allow DNS resolution, allow access to a Postgres DB service, and allow to ECR endpoints (if needed)
+  egress:
+    # allow DNS (UDP/TCP 53) to pods in kube-system or to cluster DNS by namespace/selector
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    # allow egress to the database service in the same namespace (example: postgres service)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # allow egress to Amazon ECR / external registries (by CIDR) if your cluster pulls or pushes images directly.
+    # Replace the CIDR with your ECR NAT/egress CIDRs or use a more specific rule (EKS typically uses NAT gateway IPs).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            # Optional: except:
+            #  - 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 443
+
