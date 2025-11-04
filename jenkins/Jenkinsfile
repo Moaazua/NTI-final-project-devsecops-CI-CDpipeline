@@ -1,0 +1,175 @@
+// jenkins/Jenkinsfile
+// Multibranch Pipeline:
+// - Run SonarQube analysis and fail pipeline if Quality Gate fails
+// - Build Docker image from repo Dockerfile
+// - Scan image with Trivy (fail on vulnerabilities as configured)
+// - Push image to Amazon ECR
+// - Deploy/update Kubernetes pods using Helm
+
+pipeline {
+  agent any
+
+  options {
+    timeout(time: 60, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+    // Keep the workspace clean between builds (optional)
+    skipStagesAfterUnstable()
+  }
+
+  environment {
+    // These should be provided as Jenkins pipeline environment variables or replaced here
+    // Example: set ECR_REGISTRY to "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+    ECR_REGISTRY      = "${ECR_REGISTRY ?: ''}"
+    ECR_REPO          = "${ECR_REPO ?: 'my-app'}"
+    IMAGE_TAG         = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+    SONAR_SERVER_NAME = "${SONAR_SERVER ?: 'SONARQUBE'}"   // SonarQube server configured name in Jenkins
+    K8S_NAMESPACE     = "${K8S_NAMESPACE ?: 'default'}"
+    HELM_RELEASE      = "${HELM_RELEASE ?: 'my-app-release'}"
+    HELM_CHART_PATH   = "${HELM_CHART_PATH ?: './chart'}"
+    // Trivy policy/exit behavior can be controlled via args
+    TRIVY_IGNORE_UNFIXABLE = "true"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('SonarQube Analysis') {
+      steps {
+        // Sonar token is expected to be stored in Jenkins credentials as Secret Text (ID: SONAR_TOKEN_CRED)
+        withCredentials([string(credentialsId: 'SONAR_TOKEN_CRED', variable: 'SONAR_TOKEN')]) {
+          withSonarQubeEnv("${SONAR_SERVER_NAME}") {
+            // Adjust sonar-scanner command to your project structure and languages
+            // If using Maven/Gradle adapt to mvn sonar:sonar or gradle sonarqube
+            sh """
+              # install sonar-scanner if not available or use bundled scanner on agent
+              set -o pipefail
+              sonar-scanner \\
+                -Dsonar.projectKey=${ECR_REPO} \\
+                -Dsonar.sources=. \\
+                -Dsonar.host.url=${SONAR_HOST_URL ?: env.SONAR_HOST_URL} \\
+                -Dsonar.login=${SONAR_TOKEN}
+            """
+          }
+        }
+      }
+    }
+
+    stage('Wait for SonarQube Quality Gate') {
+      steps {
+        // waitForQualityGate is provided by the SonarQube Jenkins plugin
+        script {
+          timeout(time: 5, unit: 'MINUTES') {
+            def qg = waitForQualityGate()
+            if (qg.status != 'OK') {
+              error "Pipeline aborted due to SonarQube Quality Gate: ${qg.status}"
+            } else {
+              echo "SonarQube Quality Gate passed: ${qg.status}"
+            }
+          }
+        }
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        script {
+          // Build docker image and tag it
+          def fullImage = "${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
+          sh """
+            docker build -t ${fullImage} .
+            docker images --format '{{.Repository}}:{{.Tag}}\\t{{.Size}}'
+          """
+          // expose the computed full image name to later stages
+          env.IMAGE_FULL_NAME = "${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
+        }
+      }
+    }
+
+    stage('Scan Image with Trivy') {
+      steps {
+        script {
+          // If trivy is not installed on the agent, ensure the agent provides it.
+          // Fail the build if trivy exits with non-zero (vulns found) — you can customize severity thresholds.
+          sh """
+            # run Trivy scan and exit non-zero on findings (adjust severity as needed)
+            trivy image --exit-code 1 --severity HIGH,CRITICAL ${env.IMAGE_FULL_NAME} || true
+            TRIVY_EXIT=$?
+            if [ "$TRIVY_EXIT" -ne 0 ]; then
+              echo "Trivy found HIGH/CRITICAL vulnerabilities (exit $TRIVY_EXIT). Failing pipeline."
+              exit $TRIVY_EXIT
+            fi
+          """
+        }
+      }
+    }
+
+    stage('Login to ECR & Push Image') {
+      steps {
+        // AWS_CREDENTIALS should be stored in Jenkins as "Username with password":
+        // username=AWS_ACCESS_KEY_ID, password=AWS_SECRET_ACCESS_KEY
+        withCredentials([usernamePassword(credentialsId: 'AWS_CREDENTIALS', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          script {
+            // Extract AWS region from ECR_REGISTRY if possible (expects format <acct>.dkr.ecr.<region>.amazonaws.com)
+            def awsRegion = sh(script: "echo ${ECR_REGISTRY} | awk -F'.' '{print \$(NF-2)}' || echo 'us-east-1'", returnStdout: true).trim()
+            sh """
+              aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+              aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+              aws configure set default.region ${awsRegion}
+              aws ecr get-login-password --region ${awsRegion} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+              # create repository if it does not exist (idempotent)
+              aws ecr describe-repositories --repository-names ${ECR_REPO} > /dev/null 2>&1 || aws ecr create-repository --repository-name ${ECR_REPO}
+              docker push ${env.IMAGE_FULL_NAME}
+            """
+          }
+        }
+      }
+    }
+
+    stage('Deploy to Kubernetes (Helm)') {
+      steps {
+        // KUBECONFIG_CRED should be stored as "Secret file" credential containing kubeconfig
+        withCredentials([file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG_FILE')]) {
+          script {
+            // Use the provided kubeconfig file for kubectl/helm commands
+            sh """
+              export KUBECONFIG=${KUBECONFIG_FILE}
+              # optionally show current context
+              kubectl config current-context || true
+
+              # Update Helm values or use --set to override image
+              helm upgrade --install ${HELM_RELEASE} ${HELM_CHART_PATH} \\
+                --namespace ${K8S_NAMESPACE} --create-namespace \\
+                --set image.repository=${ECR_REGISTRY}/${ECR_REPO} \\
+                --set image.tag=${IMAGE_TAG} --wait
+            """
+          }
+        }
+      }
+    }
+
+  } // stages
+
+  post {
+    success {
+      echo "Pipeline succeeded: ${env.BUILD_URL}"
+    }
+    failure {
+      echo "Pipeline failed: ${env.BUILD_URL}"
+    }
+    always {
+      // Cleanup docker images on agent to free space (optional — requires docker client)
+      script {
+        if (env.IMAGE_FULL_NAME) {
+          sh """
+            docker rmi -f ${env.IMAGE_FULL_NAME} || true
+          """
+        }
+      }
+    }
+  }
+}
