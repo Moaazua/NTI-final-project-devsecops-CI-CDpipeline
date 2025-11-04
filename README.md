@@ -131,7 +131,50 @@ Visualizes system and app status using Grafana dashboards.
 --------------------------------------------------
 
 ## 🗂️ Project Structure
-![Uploading ChatGPT Image Nov 4, 2025, 05_11_54 PM.png…]()
+## 📂 Project Structure
+
+```text
+nti-devsecops-project/
+├── terraform/
+│   ├── README.md
+│   ├── modules/
+│   │   ├── vpc/
+│   │   ├── eks/
+│   │   ├── rds/
+│   │   ├── ec2-jenkins/
+│   │   ├── s3/
+│   │   ├── ecr/
+│   │   └── backup/
+│   ├── environments/
+│   │   └── prod/
+│   │       └── main.tf
+├── ansible/
+│   ├── inventory.ini
+│   ├── playbooks/
+│   │   ├── install_jenkins.yml
+│   │   └── install_cloudwatch_agent.yml
+│   └── roles/
+│       ├── jenkins/
+│       └── cloudwatch/
+├── docker/
+│   ├── app/
+│   │   ├── Dockerfile
+│   │   └── src/
+│   └── docker-compose.yml
+├── k8s/
+│   ├── manifests/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   └── networkpolicy.yaml
+│   └── helm-chart/   # skeleton for your app chart
+├── jenkins/
+│   └── Jenkinsfile   # multibranch pipeline
+├── monitoring/
+│   ├── prometheus/
+│   │   ├── prometheus-rules.yml
+│   ├── grafana/
+│   │   └── grafana-dashboard.json
+└── README.md
 
 
 
